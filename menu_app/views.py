@@ -68,17 +68,28 @@ def menu_info_api():
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-2.5-flash")
 
-        prompt = f"""You are a helpful assistant for a restaurant menu. Perform two tasks and respond ONLY with a valid JSON object that can be parsed by Python's json.loads().
-        1. Translate the following restaurant's special note into {language}. The note is: \"{description}\"
-        2. Provide a brief, interesting, one-sentence description of the food named \"{menu_name}\" in {language}.
+        prompt = f"""You are a helpful assistant for a restaurant menu. Perform several tasks and respond ONLY with a valid JSON object that can be parsed by Python's json.loads().
+The target language is: {language}.
+The Korean food name is: \"{menu_name}\".
 
-        Your response must be a JSON object with two keys: 'translated_description' and 'food_info'. Do not wrap it in markdown (e.g., ```json ... ```).
-        Example response format:
-        {{
-            "translated_description": "Translated text here.",
-            "food_info": "A brief description of the food here."
-        }}
-        """
+Tasks:
+1.  **Transliterate the Korean food name** into the phonetic script of the target language. For example, for Japanese, use Katakana. If direct transliteration is not feasible, use the Revised Romanization of Korean.
+2.  **Translate the restaurant's special note** into the target language. The note is: \"{description}\".
+3.  **Provide a brief, interesting, one-sentence description** of the food in the target language.
+4.  **Translate the header '우리 가게 만의 특별한 점'** into the target language.
+5.  **Translate the header '음식 정보'** into the target language.
+
+Your response must be a JSON object with five keys: 'transliterated_name', 'translated_description', 'food_info', 'header_special_point', and 'header_food_info'. Do not wrap it in markdown.
+
+Example for Japanese (language='ja') and menu_name='김치찌개':
+{{
+    "transliterated_name": "キムチチゲ",
+    "translated_description": "Translated text here.",
+    "food_info": "A brief description of the food here.",
+    "header_special_point": "当店だけの特別な点",
+    "header_food_info": "食べ物情報"
+}}
+"""
 
         response = model.generate_content(prompt)
         result = json.loads(response.text)
