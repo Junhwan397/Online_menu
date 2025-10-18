@@ -1,6 +1,10 @@
 import random
 import string
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+import os
+import qrcode
+import json
+import google.generativeai as genai
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, current_app, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from .forms import RegistrationForm, LoginForm, MenuForm, RestaurantForm
 from .models import User, Restaurant, Menu
@@ -12,16 +16,77 @@ main = Blueprint('main', __name__,template_folder='../templates')
 def generate_unique_qr_id(length=8):
     """지정된 길이의 고유한 QR 코드 ID를 생성합니다."""
     while True:
-        # 숫자와 대문자를 조합하여 랜덤 문자열 생성
         new_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
-        # 생성된 ID가 데이터베이스에 이미 존재하는지 확인
         if not Restaurant.query.filter_by(qr_code_id=new_id).first():
             return new_id
+
+def create_qr_code(qr_id, data):
+    """주어진 ID와 데이터로 QR 코드를 생성하고 저장합니다."""
+    qr_folder = os.path.join(current_app.static_folder, 'qr_codes')
+    os.makedirs(qr_folder, exist_ok=True)
+    
+    qr_path = os.path.join(qr_folder, f'{qr_id}.png')
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+    img.save(qr_path)
 
 
 @main.route('/')
 def home_page():
     return render_template('index.html')
+
+@main.route('/menu/<qr_code_id>')
+def public_menu_page(qr_code_id):
+    restaurant = Restaurant.query.filter_by(qr_code_id=qr_code_id).first_or_404()
+    menus = restaurant.menus.all()
+    return render_template('public_menu.html', restaurant=restaurant, menus=menus)
+
+@main.route('/api/menu-info', methods=['POST'])
+def menu_info_api():
+    data = request.get_json()
+    menu_name = data.get('menu_name')
+    description = data.get('description')
+    language = data.get('language', 'en') # 기본값 영어
+
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if not api_key:
+        return jsonify({'error': 'API key is missing.'}), 500
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-pro')
+
+        prompt = f"""You are a helpful assistant for a restaurant menu. Perform two tasks and respond ONLY with a valid JSON object.
+        1. Translate the following restaurant's special note into {language}. The note is: \"{description}\"
+        2. Provide a brief, interesting, one-sentence description of the food named \"{menu_name}\" in {language}.
+
+        Your response must be a JSON object with two keys: 'translated_description' and 'food_info'.
+        Example response format:
+        {{
+            "translated_description": "Translated text here.",
+            "food_info": "A brief description of the food here."
+        }}
+        """
+
+        response = model.generate_content(prompt)
+        
+        # 응답 텍스트에서 JSON 부분만 추출
+        json_response_text = response.text.strip().replace('```json', '').replace('```', '')
+        result = json.loads(json_response_text)
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @main.route('/login', methods=['GET', 'POST'])
@@ -72,7 +137,12 @@ def add_restaurant_page():
         new_restaurant.owners.append(current_user)
         db.session.add(new_restaurant)
         db.session.commit()
-        flash('새 식당이 추가되었습니다.', 'success')
+
+        # QR 코드 생성
+        qr_data = url_for('main.public_menu_page', qr_code_id=new_restaurant.qr_code_id, _external=True)
+        create_qr_code(new_restaurant.qr_code_id, qr_data)
+
+        flash('새 식당이 추가되고 QR 코드가 생성되었습니다.', 'success')
         return redirect(url_for('main.restaurant_list_page'))
     return render_template('add_restaurant.html', form=form)
 
@@ -99,6 +169,14 @@ def delete_restaurant(restaurant_id):
     if current_user not in restaurant.owners:
         abort(403)
     
+    # QR 코드 파일 삭제
+    qr_code_path = os.path.join(current_app.static_folder, 'qr_codes', f'{restaurant.qr_code_id}.png')
+    try:
+        if os.path.exists(qr_code_path):
+            os.remove(qr_code_path)
+    except OSError as e:
+        flash(f'QR 코드 파일 삭제 중 오류 발생: {e}', 'danger')
+
     db.session.delete(restaurant)
     db.session.commit()
     flash('식당이 삭제되었습니다.', 'success')
