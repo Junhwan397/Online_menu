@@ -12,7 +12,12 @@ def home_page():
 def login_page():
     return render_template('login.html')
 
+@main.route('/register')
+def register_page():
+    return render_template('register.html')
+
 
 @main.route('/restaurants')
 def restaurant_list_page():
     return "<h1>식당 관리 페이지</h1><p>등록된 식당 목록 및 관리가 표시됩니다.</p>"
+
