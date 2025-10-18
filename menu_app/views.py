@@ -76,6 +76,34 @@ def add_restaurant_page():
         return redirect(url_for('main.restaurant_list_page'))
     return render_template('add_restaurant.html', form=form)
 
+@main.route('/restaurant/<int:restaurant_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_restaurant_page(restaurant_id):
+    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    if current_user not in restaurant.owners:
+        abort(403)
+    
+    form = RestaurantForm(obj=restaurant)
+    if form.validate_on_submit():
+        restaurant.name = form.name.data
+        db.session.commit()
+        flash('식당 정보가 수정되었습니다.', 'success')
+        return redirect(url_for('main.restaurant_list_page'))
+    
+    return render_template('edit_restaurant.html', form=form, restaurant=restaurant)
+
+@main.route('/restaurant/<int:restaurant_id>/delete', methods=['POST'])
+@login_required
+def delete_restaurant(restaurant_id):
+    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    if current_user not in restaurant.owners:
+        abort(403)
+    
+    db.session.delete(restaurant)
+    db.session.commit()
+    flash('식당이 삭제되었습니다.', 'success')
+    return redirect(url_for('main.restaurant_list_page'))
+
 @main.route('/restaurant/<int:restaurant_id>/manage', methods=['GET', 'POST'])
 @login_required
 def menu_management_page(restaurant_id):
@@ -117,5 +145,18 @@ def edit_menu_page(menu_id):
         return redirect(url_for('main.menu_management_page', restaurant_id=restaurant.id))
 
     return render_template('edit_menu.html', form=form, menu=menu)
+
+@main.route('/menu/<int:menu_id>/delete', methods=['POST'])
+@login_required
+def delete_menu(menu_id):
+    menu = Menu.query.get_or_404(menu_id)
+    restaurant_id = menu.restaurant.id
+    if current_user not in menu.restaurant.owners:
+        abort(403)
+    
+    db.session.delete(menu)
+    db.session.commit()
+    flash('메뉴가 삭제되었습니다.', 'success')
+    return redirect(url_for('main.menu_management_page', restaurant_id=restaurant_id))
 
 

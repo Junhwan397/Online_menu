@@ -43,7 +43,7 @@ class Restaurant(db.Model):
     name = db.Column(db.String(100), nullable=False)
     qr_code_id = db.Column(db.String(20), unique=True, nullable=False)
 
-    menus = db.relationship('Menu', backref='restaurant', lazy='dynamic')
+    menus = db.relationship('Menu', backref='restaurant', lazy='dynamic', cascade="all, delete-orphan")
 
     def __repr__(self):
         return f'<Restaurant {self.name}>'

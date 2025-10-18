@@ -5,7 +5,7 @@ import qrcode
 # ------------------------------
 # 사용자 기기에서 메뉴 정보를 조회할 서버 주소(베이스 URL)를 가정합니다.
 # 실제 앱에서는 이 URL로 접속하여 'r_id=12345'를 분석해 식당 정보를 가져옵니다.
-BASE_URL = "https://"
+BASE_URL = "https://test1.com"
 RESTAURANT_ID = "12345"  # 식당 고유 ID
 DATA_TO_ENCODE = f"{BASE_URL}?r_id={RESTAURANT_ID}"
 
