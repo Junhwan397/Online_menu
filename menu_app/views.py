@@ -76,8 +76,10 @@ Tasks:
 1.  **Transliterate the Korean food name** into the phonetic script of the target language. For example, for Japanese, use Katakana. If direct transliteration is not feasible, use the Revised Romanization of Korean.
 2.  **Translate the restaurant's special note** into the target language. The note is: \"{description}\".
 3.  **Provide a brief, interesting, one-sentence description** of the food in the target language.
-4.  **Translate the header '우리 가게 만의 특별한 점'** into the target language.
-5.  **Translate the header '음식 정보'** into the target language.
+4.  **Provide main ingredients, how to eat,Allergy precautions ** of the food in the target language.
+5.  **Provide an allergy precaution if possible, or if consumption of the food may cause a problem** of the food in the target language.
+6.  **Translate the header '우리 가게 만의 특별한 점'** into the target language.
+7.  **Translate the header '음식 정보'** into the target language.
 
 Your response must be a JSON object with five keys: 'transliterated_name', 'translated_description', 'food_info', 'header_special_point', and 'header_food_info'. Do not wrap it in markdown.
 
