@@ -10,7 +10,7 @@ from .forms import RegistrationForm, LoginForm, MenuForm, RestaurantForm
 from .models import User, Restaurant, Menu
 from .extensions import db
 
-main = Blueprint('main', __name__,template_folder='../templates')
+main = Blueprint('main', __name__, template_folder='../templates')
 
 
 def generate_unique_qr_id(length=8):
@@ -20,11 +20,12 @@ def generate_unique_qr_id(length=8):
         if not Restaurant.query.filter_by(qr_code_id=new_id).first():
             return new_id
 
+
 def create_qr_code(qr_id, data):
     """주어진 ID와 데이터로 QR 코드를 생성하고 저장합니다."""
     qr_folder = os.path.join(current_app.static_folder, 'qr_codes')
     os.makedirs(qr_folder, exist_ok=True)
-    
+
     qr_path = os.path.join(qr_folder, f'{qr_id}.png')
 
     qr = qrcode.QRCode(
@@ -44,11 +45,25 @@ def create_qr_code(qr_id, data):
 def home_page():
     return render_template('index.html')
 
+
 @main.route('/menu/<qr_code_id>')
 def public_menu_page(qr_code_id):
     restaurant = Restaurant.query.filter_by(qr_code_id=qr_code_id).first_or_404()
     menus = restaurant.menus.all()
-    return render_template('public_menu.html', restaurant=restaurant, menus=menus)
+
+    # 브라우저의 'Accept-Language' 헤더에서 언어 설정 파악
+    lang_header = request.headers.get('Accept-Language')
+    user_lang = 'ko'  # 기본값은 한국어
+    if lang_header:
+        # 가장 우선순위가 높은 언어 코드를 파싱 (예: 'en-US,en;q=0.9' -> 'en')
+        user_lang = lang_header.split(',')[0].split('-')[0].lower()
+        # 지원하는 언어(en, ja)가 아니면 기본값(ko) 사용
+        if user_lang not in ['en', 'ja']:
+            user_lang = 'ko'
+
+    return render_template('public_menu.html', restaurant=restaurant, menus=menus, user_lang=user_lang)
+
+
 
 @main.route('/api/menu-info', methods=['POST'])
 def menu_info_api():
@@ -58,7 +73,7 @@ def menu_info_api():
 
     menu_name = data.get('menu_name')
     description = data.get('description')
-    language = data.get('language', 'en')
+    language = data.get('language', 'en')  # 프론트엔드에서 받은 언어 사용
 
     api_key = os.environ.get('GEMINI_API_KEY')
     if not api_key:
@@ -73,32 +88,36 @@ The target language is: {language}.
 The Korean food name is: \"{menu_name}\".
 
 Tasks:
-1.  **Transliterate the Korean food name** into the phonetic script of the target language. For example, for Japanese, use Katakana. If direct transliteration is not feasible, use the Revised Romanization of Korean.
+1.  **Transliterate the Korean food name** into the phonetic script of the target language.
 2.  **Translate the restaurant's special note** into the target language. The note is: \"{description}\".
-3.  **Provide a brief, interesting, one-sentence description** of the food in the target language.
-4.  **Provide main ingredients, how to eat,Allergy precautions ** of the food in the target language.
-5.  **Provide an allergy precaution if possible, or if consumption of the food may cause a problem** of the food in the target language.
+3.  **Provide a brief, one-sentence description** of the food in the target language.
+4.  **Provide main ingredients and how to eat** the food in the target language.
+5.  **Provide allergy information** for the food. If there are no common allergens, state that.
 6.  **Translate the header '우리 가게 만의 특별한 점'** into the target language.
 7.  **Translate the header '음식 정보'** into the target language.
+8.  **Translate the header '알레르기 정보'** into the target language.
 
-Your response must be a JSON object with five keys: 'transliterated_name', 'translated_description', 'food_info', 'header_special_point', and 'header_food_info'. Do not wrap it in markdown.
+Your response must be a JSON object with the following keys: 'transliterated_name', 'translated_description', 'food_description', 'food_details', 'allergy_info', 'header_special_point', 'header_food_info', and 'header_allergy_info'. Do not wrap it in markdown.
 
 Example for Japanese (language='ja') and menu_name='김치찌개':
 {{
     "transliterated_name": "キムチチゲ",
-    "translated_description": "Translated text here.",
-    "food_info": "A brief description of the food here.",
+    "translated_description": "Translated special note here.",
+    "food_description": "A brief, one-sentence description of the food.",
+    "food_details": "Main ingredients and how to eat information.",
+    "allergy_info": "Contains pork, tofu (soybeans).",
     "header_special_point": "当店だけの特別な点",
-    "header_food_info": "食べ物情報"
+    "header_food_info": "食べ物情報",
+    "header_allergy_info": "アレルギー情報"
 }}
 """
 
         response = model.generate_content(prompt)
-        result = json.loads(response.text)
+        cleaned_response_text = response.text.strip().replace('```json', '').replace('```', '')
+        result = json.loads(cleaned_response_text)
         return jsonify(result)
 
     except Exception as e:
-        # Gemini API 호출 또는 JSON 파싱 중 발생한 모든 오류를 처리합니다.
         return jsonify({'error': f'API 호출 또는 데이터 처리 중 오류 발생: {str(e)}'}), 500
 
 
@@ -115,12 +134,14 @@ def login_page():
         return redirect(url_for('main.restaurant_list_page'))
     return render_template('login.html', form=form)
 
+
 @main.route('/logout')
 @login_required
 def logout_page():
     logout_user()
     flash('로그아웃되었습니다.', 'info')
     return redirect(url_for('main.home_page'))
+
 
 @main.route('/register', methods=['GET', 'POST'])
 def register_page():
@@ -140,6 +161,7 @@ def register_page():
 def restaurant_list_page():
     return render_template('restaurants.html', restaurants=current_user.restaurants)
 
+
 @main.route('/add_restaurant', methods=['GET', 'POST'])
 @login_required
 def add_restaurant_page():
@@ -151,7 +173,6 @@ def add_restaurant_page():
         db.session.add(new_restaurant)
         db.session.commit()
 
-        # QR 코드 생성
         qr_data = url_for('main.public_menu_page', qr_code_id=new_restaurant.qr_code_id, _external=True)
         create_qr_code(new_restaurant.qr_code_id, qr_data)
 
@@ -159,21 +180,23 @@ def add_restaurant_page():
         return redirect(url_for('main.restaurant_list_page'))
     return render_template('add_restaurant.html', form=form)
 
+
 @main.route('/restaurant/<int:restaurant_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_restaurant_page(restaurant_id):
     restaurant = Restaurant.query.get_or_404(restaurant_id)
     if current_user not in restaurant.owners:
         abort(403)
-    
+
     form = RestaurantForm(obj=restaurant)
     if form.validate_on_submit():
         restaurant.name = form.name.data
         db.session.commit()
         flash('식당 정보가 수정되었습니다.', 'success')
         return redirect(url_for('main.restaurant_list_page'))
-    
+
     return render_template('edit_restaurant.html', form=form, restaurant=restaurant)
+
 
 @main.route('/restaurant/<int:restaurant_id>/delete', methods=['POST'])
 @login_required
@@ -181,8 +204,7 @@ def delete_restaurant(restaurant_id):
     restaurant = Restaurant.query.get_or_404(restaurant_id)
     if current_user not in restaurant.owners:
         abort(403)
-    
-    # QR 코드 파일 삭제
+
     qr_code_path = os.path.join(current_app.static_folder, 'qr_codes', f'{restaurant.qr_code_id}.png')
     try:
         if os.path.exists(qr_code_path):
@@ -194,6 +216,7 @@ def delete_restaurant(restaurant_id):
     db.session.commit()
     flash('식당이 삭제되었습니다.', 'success')
     return redirect(url_for('main.restaurant_list_page'))
+
 
 @main.route('/restaurant/<int:restaurant_id>/manage', methods=['GET', 'POST'])
 @login_required
@@ -218,6 +241,7 @@ def menu_management_page(restaurant_id):
     menus = restaurant.menus.all()
     return render_template('menu_management.html', restaurant=restaurant, menus=menus, form=form)
 
+
 @main.route('/menu/<int:menu_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_menu_page(menu_id):
@@ -237,6 +261,7 @@ def edit_menu_page(menu_id):
 
     return render_template('edit_menu.html', form=form, menu=menu)
 
+
 @main.route('/menu/<int:menu_id>/delete', methods=['POST'])
 @login_required
 def delete_menu(menu_id):
@@ -244,10 +269,8 @@ def delete_menu(menu_id):
     restaurant_id = menu.restaurant.id
     if current_user not in menu.restaurant.owners:
         abort(403)
-    
+
     db.session.delete(menu)
     db.session.commit()
     flash('메뉴가 삭제되었습니다.', 'success')
     return redirect(url_for('main.menu_management_page', restaurant_id=restaurant_id))
-
-
