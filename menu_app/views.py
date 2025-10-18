@@ -53,11 +53,9 @@ def public_menu_page(qr_code_id):
 
     # 브라우저의 'Accept-Language' 헤더에서 언어 설정 파악
     lang_header = request.headers.get('Accept-Language')
-    user_lang = 'ko'  # 기본값은 한국어
+    user_lang = 'ko'
     if lang_header:
-        # 가장 우선순위가 높은 언어 코드를 파싱 (예: 'en-US,en;q=0.9' -> 'en')
         user_lang = lang_header.split(',')[0].split('-')[0].lower()
-        # 지원하는 언어(en, ja)가 아니면 기본값(ko) 사용
         if user_lang not in ['en', 'ja']:
             user_lang = 'ko'
 
