@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}{{ restaurant.name }} - 메뉴 관리{% endblock %}
+
+{% block content %}
+    <h2>{{ restaurant.name }} - 메뉴 관리</h2>
+
+    {# 플래시 메시지 표시 #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <hr>
+    <h3>새 메뉴 추가</h3>
+    <form method="POST" action="{{ url_for('main.menu_management_page', restaurant_id=restaurant.id) }}">
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.name_ko.label }}<br>
+            {{ form.name_ko(size=40) }}
+            {% for error in form.name_ko.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.description_ko.label }}<br>
+            {{ form.description_ko(rows=4, cols=40) }}
+            {% for error in form.description_ko.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.price.label }}<br>
+            {{ form.price(size=40) }}
+            {% for error in form.price.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+
+    <hr>
+    <h3>기존 메뉴 목록</h3>
+    {% if menus %}
+        <table border="1" style="width:100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="padding: 8px;">이름</th>
+                    <th style="padding: 8px;">우리 가게 만의 특별한 점</th>
+                    <th style="padding: 8px;">가격</th>
+                    <th style="padding: 8px;">작업</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for menu in menus %}
+                    <tr>
+                        <td style="padding: 8px;">{{ menu.name_ko }}</td>
+                        <td style="padding: 8px;">{{ menu.description_ko }}</td>
+                        <td style="padding: 8px;">{{ menu.price }} 원</td>
+                        <td style="padding: 8px;">
+                            <a href="{{ url_for('main.edit_menu_page', menu_id=menu.id) }}">수정</a>
+                            <form action="{{ url_for('main.delete_menu', menu_id=menu.id) }}" method="post" style="display:inline; margin-left: 5px;">
+                                <input type="submit" value="삭제" onclick="return confirm('정말로 이 메뉴를 삭제하시겠습니까?');">
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>등록된 메뉴가 없습니다.</p>
+    {% endif %}
+
+{% endblock %}

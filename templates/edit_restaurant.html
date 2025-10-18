@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}식당 정보 수정: {{ restaurant.name }}{% endblock %}
+
+{% block content %}
+    <h2>식당 정보 수정</h2>
+
+    <form method="POST" action="{{ url_for('main.edit_restaurant_page', restaurant_id=restaurant.id) }}">
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.name.label }}<br>
+            {{ form.name(size=40) }}
+            {% for error in form.name.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>{{ form.submit(label='수정 완료') }}</p>
+    </form>
+
+    <p><a href="{{ url_for('main.restaurant_list_page') }}">취소하고 돌아가기</a></p>
+
+{% endblock %}

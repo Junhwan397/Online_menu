@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="{{ user_lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ restaurant.name }} - 메뉴</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        h1 { text-align: center; }
+        .menu-item { border-bottom: 1px solid #ccc; padding: 1em 0; cursor: pointer; }
+        .menu-item.selected { background-color: #d4edda; }
+        .menu-item:hover { background-color: #f0f0f0; }
+        .menu-item h2 { margin: 0; font-size: 1.2em; }
+        .menu-item p { margin: 0.5em 0 0 0; color: #555; }
+        .price { float: right; font-weight: bold; }
+        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 8px; }
+        .modal-content p { white-space: pre-wrap; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close:hover, .close:focus { color: black; text-decoration: none; cursor: pointer; }
+        .lang-selector { text-align: center; margin-bottom: 1.5em; }
+        .lang-btn { padding: 8px 15px; border: 1px solid #ccc; background-color: #f0f0f0; cursor: pointer; border-radius: 5px; margin: 0 5px; }
+        .lang-btn.active { background-color: #007bff; color: white; border-color: #007bff; }
+    </style>
+</head>
+<body>
+    <h1>{{ restaurant.name }}</h1>
+
+    <div class="lang-selector">
+        <button class="lang-btn" data-lang="auto">자동 / Auto</button>
+        <button class="lang-btn" data-lang="ko">한국어</button>
+        <button class="lang-btn" data-lang="en">English</button>
+        <button class="lang-btn" data-lang="ja">日本語</button>
+    </div>
+
+    <hr>
+    {% if menus %}
+        <div id="menu-list">
+            {% for menu in menus %}
+                <div class="menu-item"
+                     data-name-ko="{{ menu.name_ko }}"
+                     data-description-ko="{{ menu.description_ko }}"
+                     data-price="{{ menu.price }}">
+                    <span class="price">{{ menu.price }} 원</span>
+                    <h2 class="menu-name">{{ menu.name_ko }}</h2>
+                    <p class="menu-description">{{ menu.description_ko }}</p>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>아직 등록된 메뉴가 없습니다.</p>
+    {% endif %}
+
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modal-title"></h2>
+            <hr>
+            <h4 id="modal-header-special-point">우리 가게 만의 특별한 점</h4>
+            <p id="modal-description"></p>
+            <h4 id="modal-header-food-info">음식 정보</h4>
+            <p id="modal-food-info"></p>
+            <h4 id="modal-header-allergy-info">알레르기 정보</h4>
+            <p id="modal-allergy-info"></p>
+        </div>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- 변수 설정 ---
+        const modal = document.getElementById('infoModal');
+        const closeBtn = document.getElementsByClassName('close')[0];
+        const langButtons = document.querySelectorAll('.lang-btn');
+        const menuItems = document.querySelectorAll('.menu-item');
+
+        //수정된 부분: 변수 로직 변경
+        // 서버에서 전달된 브라우저 기본 언어를 상수에 저장
+        const browserLang = '{{ user_lang }}';
+        // 사용자가 선택한 모드('auto', 'ko', 'en', 'ja')를 저장. 기본값은 'auto'
+        let currentMode = 'auto';
+        let selectedMenuItem = null;
+
+        // --- 함수 정의 ---
+
+        function fetchMenuDetails(menuItem) {
+            const menuNameKo = menuItem.dataset.nameKo;
+            const descriptionKo = menuItem.dataset.descriptionKo;
+            const price = menuItem.dataset.price;
+
+            //
+            // 현재 모드가 'auto'이면 브라우저 언어를 사용하고, 아니면 선택된 언어 코드를 사용
+            const apiLang = (currentMode === 'auto') ? browserLang : currentMode;
+
+            const modalContent = {
+                title: document.getElementById('modal-title'),
+                description: document.getElementById('modal-description'),
+                foodInfo: document.getElementById('modal-food-info'),
+                allergyInfo: document.getElementById('modal-allergy-info'),
+                headerSpecial: document.getElementById('modal-header-special-point'),
+                headerFood: document.getElementById('modal-header-food-info'),
+                headerAllergy: document.getElementById('modal-header-allergy-info'),
+            };
+
+            // 모달 초기화
+            modalContent.title.textContent = menuNameKo;
+            const loadingText = '정보를 불러오는 중...';
+            modalContent.description.textContent = loadingText;
+            modalContent.foodInfo.textContent = loadingText;
+            modalContent.allergyInfo.textContent = loadingText;
+
+            if (apiLang !== 'ko') {
+                modalContent.headerSpecial.textContent = loadingText;
+                modalContent.headerFood.textContent = loadingText;
+                modalContent.headerAllergy.textContent = loadingText;
+            } else {
+                modalContent.headerSpecial.textContent = '우리 가게 만의 특별한 점';
+                modalContent.headerFood.textContent = '음식 정보';
+                modalContent.headerAllergy.textContent = '알레르기 정보';
+            }
+
+            modal.style.display = 'block';
+
+            // API에 보낼 언어가 'ko'인 경우, API 호출 없이 기본 정보만 표시
+            if (apiLang === 'ko') {
+                modalContent.description.textContent = descriptionKo;
+                modalContent.foodInfo.textContent = "상세 정보는 다른 언어로 확인해주세요.";
+                modalContent.allergyInfo.textContent = "상세 정보는 다른 언어로 확인해주세요.";
+                return;
+            }
+
+            // 그 외 언어는 API 호출
+            fetch("{{ url_for('main.menu_info_api') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    menu_name: menuNameKo,
+                    description: descriptionKo,
+                    language: apiLang // 결정된 언어 코드를 API에 전송
+                }),
+            })
+            .then(response => response.ok ? response.json() : response.json().then(err => Promise.reject(err)))
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                modalContent.title.textContent = data.transliterated_name;
+                modalContent.headerSpecial.textContent = data.header_special_point;
+                modalContent.headerFood.textContent = data.header_food_info;
+                modalContent.headerAllergy.textContent = data.header_allergy_info;
+                modalContent.description.textContent = data.translated_description;
+                modalContent.foodInfo.textContent = data.food_description + '\n\n' + data.food_details;
+                modalContent.allergyInfo.textContent = data.allergy_info;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const errorMessage = '오류: ' + (error.error || error.message);
+                modalContent.description.textContent = errorMessage;
+                modalContent.foodInfo.textContent = '';
+                modalContent.allergyInfo.textContent = '';
+            });
+        }
+
+        // 언어 버튼 활성 상태 업데이트
+        function updateLangButtons() {
+            langButtons.forEach(btn => {
+                if (btn.dataset.lang === currentMode) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // --- 이벤트 리스너 설정 ---
+
+        langButtons.forEach(button => {
+            button.addEventListener('click', function () {
+                // 클릭된 버튼의 data-lang 값을 현재 모드로 설정
+                currentMode = this.dataset.lang;
+                updateLangButtons();
+
+                if (selectedMenuItem && modal.style.display === 'block') {
+                    fetchMenuDetails(selectedMenuItem);
+                }
+            });
+        });
+
+        menuItems.forEach(item => {
+            item.addEventListener('click', function () {
+                if (selectedMenuItem) selectedMenuItem.classList.remove('selected');
+                selectedMenuItem = this;
+                selectedMenuItem.classList.add('selected');
+                fetchMenuDetails(selectedMenuItem);
+            });
+        });
+
+        // 모달 닫기
+        closeBtn.onclick = () => { modal.style.display = 'none'; };
+        window.onclick = (event) => {
+            if (event.target == modal) modal.style.display = 'none';
+        };
+
+        // --- 초기화 ---
+        updateLangButtons(); // 페이지 로드 시 'auto' 버튼이 기본으로 활성화됨
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}메뉴 수정: {{ menu.name_ko }}{% endblock %}
+
+{% block content %}
+    <h2>메뉴 수정: {{ menu.name_ko }}</h2>
+
+    <form method="POST" action="{{ url_for('main.edit_menu_page', menu_id=menu.id) }}">
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.name_ko.label }}<br>
+            {{ form.name_ko(size=40) }}
+            {% for error in form.name_ko.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.description_ko.label }}<br>
+            {{ form.description_ko(rows=4, cols=40) }}
+            {% for error in form.description_ko.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.price.label }}<br>
+            {{ form.price(size=40) }}
+            {% for error in form.price.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+
+    <p><a href="{{ url_for('main.menu_management_page', restaurant_id=menu.restaurant_id) }}">취소하고 돌아가기</a></p>
+
+{% endblock %}

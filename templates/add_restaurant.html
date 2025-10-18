@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}새 식당 추가{% endblock %}
+
+{% block content %}
+    <h2>새 식당 추가</h2>
+
+    <form method="POST" action="{{ url_for('main.add_restaurant_page') }}">
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.name.label }}<br>
+            {{ form.name(size=40) }}
+            {% for error in form.name.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+
+    <p><a href="{{ url_for('main.restaurant_list_page') }}">취소하고 돌아가기</a></p>
+
+{% endblock %}
