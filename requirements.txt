@@ -6,3 +6,6 @@ flask_migrate
 werkzeug
 google.generativeai
 wtforms
+python-dotenv
+psycopg2-binary
+gunicorn

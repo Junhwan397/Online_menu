@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from menu_app import create_app, db
 
 # 애플리케이션 팩토리를 사용하여 앱 인스턴스 생성
