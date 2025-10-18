@@ -1,0 +1,8 @@
+qrcode
+pillow
+Flask
+flask_login
+flask_migrate
+werkzeug
+google.generativeai
+wtforms
