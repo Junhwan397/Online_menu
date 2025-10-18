@@ -1,3 +1,5 @@
+import random
+import string
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
 from flask_login import login_user, logout_user, login_required, current_user
 from .forms import RegistrationForm, LoginForm, MenuForm, RestaurantForm
@@ -5,6 +7,16 @@ from .models import User, Restaurant, Menu
 from .extensions import db
 
 main = Blueprint('main', __name__,template_folder='../templates')
+
+
+def generate_unique_qr_id(length=8):
+    """지정된 길이의 고유한 QR 코드 ID를 생성합니다."""
+    while True:
+        # 숫자와 대문자를 조합하여 랜덤 문자열 생성
+        new_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+        # 생성된 ID가 데이터베이스에 이미 존재하는지 확인
+        if not Restaurant.query.filter_by(qr_code_id=new_id).first():
+            return new_id
 
 
 @main.route('/')
@@ -55,7 +67,8 @@ def restaurant_list_page():
 def add_restaurant_page():
     form = RestaurantForm()
     if form.validate_on_submit():
-        new_restaurant = Restaurant(name=form.name.data, qr_code_id=form.qr_code_id.data)
+        qr_code_id = generate_unique_qr_id()
+        new_restaurant = Restaurant(name=form.name.data, qr_code_id=qr_code_id)
         new_restaurant.owners.append(current_user)
         db.session.add(new_restaurant)
         db.session.commit()
