@@ -1,7 +1,7 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_user, logout_user, login_required
-from .forms import RegistrationForm, LoginForm
-from .models import User
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+from flask_login import login_user, logout_user, login_required, current_user
+from .forms import RegistrationForm, LoginForm, MenuForm, RestaurantForm
+from .models import User, Restaurant, Menu
 from .extensions import db
 
 main = Blueprint('main', __name__,template_folder='../templates')
@@ -48,6 +48,61 @@ def register_page():
 @main.route('/restaurants')
 @login_required
 def restaurant_list_page():
-    return "<h1>식당 관리 페이지</h1><p>등록된 식당 목록 및 관리가 표시됩니다.</p>"
+    return render_template('restaurants.html', restaurants=current_user.restaurants)
+
+@main.route('/add_restaurant', methods=['GET', 'POST'])
+@login_required
+def add_restaurant_page():
+    form = RestaurantForm()
+    if form.validate_on_submit():
+        new_restaurant = Restaurant(name=form.name.data, qr_code_id=form.qr_code_id.data)
+        new_restaurant.owners.append(current_user)
+        db.session.add(new_restaurant)
+        db.session.commit()
+        flash('새 식당이 추가되었습니다.', 'success')
+        return redirect(url_for('main.restaurant_list_page'))
+    return render_template('add_restaurant.html', form=form)
+
+@main.route('/restaurant/<int:restaurant_id>/manage', methods=['GET', 'POST'])
+@login_required
+def menu_management_page(restaurant_id):
+    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    if current_user not in restaurant.owners:
+        abort(403)
+
+    form = MenuForm()
+    if form.validate_on_submit():
+        new_menu = Menu(
+            name_ko=form.name_ko.data,
+            description_ko=form.description_ko.data,
+            price=form.price.data,
+            restaurant_id=restaurant.id
+        )
+        db.session.add(new_menu)
+        db.session.commit()
+        flash('새 메뉴가 추가되었습니다.', 'success')
+        return redirect(url_for('main.menu_management_page', restaurant_id=restaurant.id))
+
+    menus = restaurant.menus.all()
+    return render_template('menu_management.html', restaurant=restaurant, menus=menus, form=form)
+
+@main.route('/menu/<int:menu_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_menu_page(menu_id):
+    menu = Menu.query.get_or_404(menu_id)
+    restaurant = menu.restaurant
+    if current_user not in restaurant.owners:
+        abort(403)
+
+    form = MenuForm(obj=menu)
+    if form.validate_on_submit():
+        menu.name_ko = form.name_ko.data
+        menu.description_ko = form.description_ko.data
+        menu.price = form.price.data
+        db.session.commit()
+        flash('메뉴가 수정되었습니다.', 'success')
+        return redirect(url_for('main.menu_management_page', restaurant_id=restaurant.id))
+
+    return render_template('edit_menu.html', form=form, menu=menu)
 
 
