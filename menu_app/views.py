@@ -66,7 +66,7 @@ def menu_info_api():
 
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel("gemini-2.5-flash")
 
         prompt = f"""You are a helpful assistant for a restaurant menu. Perform two tasks and respond ONLY with a valid JSON object that can be parsed by Python's json.loads().
         1. Translate the following restaurant's special note into {language}. The note is: \"{description}\"
