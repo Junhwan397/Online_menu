@@ -46,6 +46,11 @@ def home_page():
     return render_template('index.html')
 
 
+@main.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
+
 @main.route('/menu/<qr_code_id>')
 def public_menu_page(qr_code_id):
     restaurant = Restaurant.query.filter_by(qr_code_id=qr_code_id).first_or_404()
