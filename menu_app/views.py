@@ -53,23 +53,26 @@ def public_menu_page(qr_code_id):
 @main.route('/api/menu-info', methods=['POST'])
 def menu_info_api():
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No input data provided'}), 400
+
     menu_name = data.get('menu_name')
     description = data.get('description')
-    language = data.get('language', 'en') # 기본값 영어
+    language = data.get('language', 'en')
 
     api_key = os.environ.get('GEMINI_API_KEY')
     if not api_key:
-        return jsonify({'error': 'API key is missing.'}), 500
+        return jsonify({'error': 'GEMINI_API_KEY 환경 변수가 설정되지 않았습니다.'}), 500
 
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-pro')
 
-        prompt = f"""You are a helpful assistant for a restaurant menu. Perform two tasks and respond ONLY with a valid JSON object.
+        prompt = f"""You are a helpful assistant for a restaurant menu. Perform two tasks and respond ONLY with a valid JSON object that can be parsed by Python's json.loads().
         1. Translate the following restaurant's special note into {language}. The note is: \"{description}\"
         2. Provide a brief, interesting, one-sentence description of the food named \"{menu_name}\" in {language}.
 
-        Your response must be a JSON object with two keys: 'translated_description' and 'food_info'.
+        Your response must be a JSON object with two keys: 'translated_description' and 'food_info'. Do not wrap it in markdown (e.g., ```json ... ```).
         Example response format:
         {{
             "translated_description": "Translated text here.",
@@ -78,15 +81,12 @@ def menu_info_api():
         """
 
         response = model.generate_content(prompt)
-        
-        # 응답 텍스트에서 JSON 부분만 추출
-        json_response_text = response.text.strip().replace('```json', '').replace('```', '')
-        result = json.loads(json_response_text)
-
+        result = json.loads(response.text)
         return jsonify(result)
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        # Gemini API 호출 또는 JSON 파싱 중 발생한 모든 오류를 처리합니다.
+        return jsonify({'error': f'API 호출 또는 데이터 처리 중 오류 발생: {str(e)}'}), 500
 
 
 @main.route('/login', methods=['GET', 'POST'])
